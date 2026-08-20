@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Safety Management Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --ink:#14181F; --ink-soft:#6B7280; --ink-faint:#9AA1AC;
+  --paper:#F3F5F1; --card:#FFFFFF; --line:#E5E7E2;
+  --green:#1E8E5A; --green-dark:#166E45; --green-soft:#E7F3EC;
+  --blue:#2F6FE0; --blue-soft:#EAF1FD;
+  --red:#D64545; --red-soft:#FBEAEA;
+  --olive:#A98A1E; --olive-soft:#F6EFDD;
+  --navy:#1F3A5F; --purple:#6C4FD1; --teal:#1E9E96; --grey:#8A8F98;
+}
+*{box-sizing:border-box;}
+html,body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased;}
+.wrap{max-width:1260px; margin:0 auto; padding:16px 18px 24px;}
+svg.ic{width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0;}
+
+/* ---- hero ---- */
+.hero{
+  background:var(--card); border:1px solid var(--line); border-radius:10px;
+  padding:12px 18px; display:flex; align-items:center; justify-content:space-between;
+  gap:12px; margin-bottom:10px; border-left:5px solid var(--green); flex-wrap:wrap;
+}
+.hero-left{display:flex; align-items:center; gap:12px;}
+.hero-icon{
+  width:36px; height:36px; border-radius:9px; background:var(--green-soft); color:var(--green);
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.hero h1{font-size:18px; margin:0; font-weight:800; letter-spacing:-.01em;}
+.hero .hero-sub{
+  font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--green-dark); margin:2px 0 0; font-weight:600;
+}
+.hero-right{display:flex; align-items:center; gap:8px;}
+.status-pill{
+  display:flex; align-items:center; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px;
+  color:var(--ink-soft); background:var(--paper); border:1px solid var(--line); border-radius:20px; padding:5px 10px;
+}
+.dot{width:7px; height:7px; border-radius:50%; background:var(--green);}
+.dot.bad{background:var(--red);}
+.btn{
+  display:flex; align-items:center; gap:6px; font-family:'Inter',sans-serif; font-weight:600; font-size:12.5px;
+  border:none; border-radius:7px; padding:7px 12px; cursor:pointer;
+}
+.btn-primary{background:var(--green); color:#fff;}
+.btn-primary:hover{background:var(--green-dark);}
+.btn-ghost{background:var(--card); color:var(--ink-soft); border:1px solid var(--line);}
+.btn-ghost:hover{background:var(--paper);}
+
+/* ---- banner ---- */
+#banner{
+  display:none; font-family:'IBM Plex Mono',monospace; font-size:11.5px; background:var(--olive-soft);
+  border:1px solid var(--olive); color:#6B540F; border-radius:8px; padding:10px 14px; margin-bottom:10px; line-height:1.5;
+}
+#banner code{background:#EDE0BC; padding:1px 5px; border-radius:3px;}
+
+/* ---- filter bar ---- */
+.filter-bar{
+  background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 16px;
+  display:flex; gap:14px; margin-bottom:10px; flex-wrap:wrap; align-items:flex-end;
+}
+.f-field{display:flex; flex-direction:column; gap:4px; min-width:150px;}
+.f-field.grow{flex:1; min-width:200px;}
+.f-field label{
+  font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint);
+}
+.f-field select, .f-field input{
+  font-family:'Inter',sans-serif; font-size:12.5px; padding:7px 9px; border:1px solid var(--line);
+  border-radius:6px; background:var(--paper); color:var(--ink);
+}
+.f-field select:focus, .f-field input:focus{outline:2px solid var(--green); outline-offset:1px;}
+
+/* ---- active filter chips ---- */
+#chipRow{display:flex; gap:7px; flex-wrap:wrap; margin:0 0 10px; min-height:0;}
+.chip-x{
+  display:flex; align-items:center; gap:6px; background:var(--red-soft); color:var(--red);
+  font-family:'IBM Plex Mono',monospace; font-size:10.5px; border-radius:14px; padding:4px 5px 4px 11px;
+}
+.chip-x button{background:none; border:none; color:var(--red); font-size:12px; cursor:pointer; padding:0 3px;}
+
+/* ---- KPI row ---- */
+.kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:10px;}
+.kpi{
+  background:var(--card); border:1px solid var(--line); border-radius:10px; padding:11px 14px;
+  border-top:4px solid var(--grey); cursor:pointer; transition:box-shadow .15s;
+}
+.kpi:hover{box-shadow:0 2px 10px rgba(0,0,0,.06);}
+.kpi.active{box-shadow:0 0 0 2px var(--ink) inset;}
+.kpi.k-blue{border-top-color:var(--blue);}
+.kpi.k-green{border-top-color:var(--green);}
+.kpi.k-red{border-top-color:var(--red);}
+.kpi.k-olive{border-top-color:var(--olive);}
+.kpi-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;}
+.kpi-ic{width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center;}
+.k-blue .kpi-ic{background:var(--blue-soft); color:var(--blue);}
+.k-green .kpi-ic{background:var(--green-soft); color:var(--green);}
+.k-red .kpi-ic{background:var(--red-soft); color:var(--red);}
+.k-olive .kpi-ic{background:var(--olive-soft); color:var(--olive);}
+.kpi-badge{font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:600; background:var(--paper); border-radius:8px; padding:3px 7px; color:var(--ink-soft);}
+.kpi .num{font-size:23px; font-weight:800; line-height:1;}
+.kpi .lbl{font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-soft); margin:4px 0 6px;}
+.kpi .cap{font-size:10.5px; color:var(--ink-faint); border-top:1px solid var(--line); padding-top:6px;}
+
+/* ---- tabs ---- */
+.tabs{display:flex; gap:4px; margin-bottom:0;}
+.tab-btn{
+  font-family:'Inter',sans-serif; font-weight:700; font-size:12px; color:var(--ink-soft);
+  background:var(--paper); border:1px solid var(--line); border-bottom:none;
+  border-radius:9px 9px 0 0; padding:9px 16px; cursor:pointer; position:relative; top:1px;
+}
+.tab-btn.active{background:var(--card); color:var(--ink); border-color:var(--line);}
+.tab-btn:hover{color:var(--ink);}
+
+/* fixed-height tab body: every tab panel is stacked and sized identically */
+.tab-panels{
+  position:relative; height:440px; background:var(--card); border:1px solid var(--line);
+  border-radius:0 10px 10px 10px; margin-bottom:12px; overflow:hidden;
+}
+.tab-content{
+  position:absolute; inset:0; padding:16px 18px; display:flex; flex-direction:column;
+  opacity:0; pointer-events:none; transition:opacity .12s;
+}
+.tab-content.active{opacity:1; pointer-events:auto; z-index:2;}
+
+.t-grid2{display:grid; grid-template-columns:1.3fr 1fr; gap:14px; height:100%; min-height:0;}
+.t-grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; height:100%; min-height:0;}
+.t-panel{border:1px solid var(--line); border-radius:10px; padding:12px 14px; height:100%; min-height:0; display:flex; flex-direction:column;}
+.panel-head{display:flex; align-items:center; gap:7px; font-weight:700; font-size:13px; margin-bottom:2px; flex-shrink:0;}
+.panel-head .sub{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; font-weight:500;}
+.hint{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-faint); margin:0 0 6px; flex-shrink:0;}
+.chart-box{flex:1; min-height:0; position:relative;}
+.chart-box canvas{width:100% !important; height:100% !important;}
+
+/* donut + legend */
+.donut-row{flex:1; min-height:0; display:flex; gap:14px; align-items:stretch;}
+.donut-box{width:130px; height:100%; position:relative; flex-shrink:0; display:flex; align-items:center;}
+.donut-box canvas{width:100% !important; height:100% !important; max-height:170px;}
+.legend-list{flex:1; min-height:0; display:flex; flex-direction:column; gap:5px; overflow-y:auto; padding-right:4px;}
+.leg-row{display:flex; align-items:center; gap:8px; font-size:11px; cursor:pointer; padding:3px 6px; border-radius:6px; flex-shrink:0;}
+.leg-row:hover{background:var(--paper);}
+.leg-row.active{background:var(--green-soft);}
+.leg-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+.leg-name{flex:1; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.leg-count{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-soft); background:var(--paper); border-radius:6px; padding:1px 6px; flex-shrink:0;}
+
+/* reporter list */
+.reporter-list{flex:1; min-height:0; display:flex; flex-direction:column; gap:6px; overflow-y:auto;}
+.rep-row{
+  display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:9px; padding:7px 10px;
+  cursor:pointer; flex-shrink:0;
+}
+.rep-row:hover{background:var(--paper);}
+.rep-row.active{border-color:var(--green); background:var(--green-soft);}
+.rep-rank{
+  width:22px; height:22px; border-radius:50%; background:var(--paper); color:var(--ink-soft);
+  display:flex; align-items:center; justify-content:center; font-weight:700; font-size:11px; flex-shrink:0;
+}
+.rep-rank.gold{background:#F7D77E; color:#7A5A00;}
+.rep-name{flex:1; font-weight:600; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.rep-count{
+  font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; background:var(--green);
+  color:#fff; border-radius:12px; padding:3px 9px; white-space:nowrap; flex-shrink:0;
+}
+
+/* hotspot list */
+.hotspot-list{flex:1; min-height:0; display:flex; flex-direction:column; gap:6px; overflow-y:auto;}
+.hs-row{display:flex; align-items:center; gap:9px; cursor:pointer; padding:5px 7px; border-radius:7px; flex-shrink:0;}
+.hs-row:hover{background:var(--paper);}
+.hs-row.active{background:var(--green-soft);}
+.hs-km{font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; width:74px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.hs-bar-track{flex:1; height:7px; background:var(--line); border-radius:6px; overflow:hidden;}
+.hs-bar-fill{height:100%; border-radius:6px;}
+.hs-count{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-soft); width:20px; text-align:right; flex-shrink:0;}
+
+/* ---- log table ---- */
+.log-scroll{flex:1; min-height:0; overflow-y:auto; border:1px solid var(--line); border-radius:8px;}
+table{width:100%; border-collapse:collapse; font-size:12px;}
+thead th{
+  position:sticky; top:0; text-align:left; font-family:'IBM Plex Mono',monospace; font-size:9.5px; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--ink-faint); border-bottom:1px solid var(--line); padding:8px 9px; background:var(--card); z-index:1;
+}
+tbody td{padding:8px 9px; border-bottom:1px solid var(--line); vertical-align:top;}
+tbody tr.main-row{cursor:pointer;}
+tbody tr.main-row:hover{background:var(--paper);}
+.person b{display:block; font-size:11.5px;}
+.person span{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--green); text-transform:uppercase;}
+.pill{
+  font-family:'IBM Plex Mono',monospace; font-size:10px; padding:3px 9px; border-radius:14px; display:inline-block;
+  white-space:nowrap; border:1px solid transparent; font-weight:600;
+}
+.pill.unsafe{border-color:var(--red); color:var(--red); background:var(--red-soft);}
+.pill.positive{border-color:var(--green); color:var(--green); background:var(--green-soft);}
+.pill.closed{background:var(--green); color:#fff;}
+.pill.open{background:var(--red); color:#fff;}
+.km-cell{font-family:'IBM Plex Mono',monospace; font-size:11px;}
+.findings-cell{color:var(--ink-soft); max-width:280px;}
+.expand-btn{
+  width:24px; height:24px; border-radius:50%; border:1px solid var(--line); background:var(--card);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink-soft);
+}
+.expand-btn:hover{background:var(--paper);}
+tr.detail-row td{background:var(--paper); padding:12px 16px; border-bottom:1px solid var(--line);}
+.detail-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 22px; font-size:11.5px;}
+.detail-grid p{margin:0; line-height:1.45;}
+.detail-grid b{display:block; font-family:'IBM Plex Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); margin-bottom:2px;}
+.tag{font-family:'IBM Plex Mono',monospace; font-size:9px; background:#E9ECE3; color:var(--navy); border-radius:8px; padding:2px 6px; margin:0 4px 4px 0; display:inline-block;}
+.no-results{text-align:center; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; font-size:12px; padding:24px 0;}
+
+footer{margin-top:6px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-faint);}
+
+@media (max-width:980px){
+  .kpis{grid-template-columns:repeat(2,1fr);}
+  .t-grid2, .t-grid3{grid-template-columns:1fr;}
+  .tab-panels{height:auto;}
+  .tab-content{position:relative; display:none;}
+  .tab-content.active{display:flex;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="hero-left">
+      <div class="hero-icon">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+      </div>
+      <div>
+        <h1>Safety Management Dashboard</h1>
+        <p class="hero-sub">HSE Performance Monitoring · Live from Google Sheet</p>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="status-pill"><span class="dot" id="syncDot"></span><span id="syncText">Loading…</span></div>
+      <button class="btn btn-ghost" id="refreshBtn"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9A9 9 0 0 1 20 6M20.5 15A9 9 0 0 1 4 18"/></svg>Refresh</button>
+      <button class="btn btn-primary" id="logObsBtn"><svg class="ic" style="width:13px;height:13px; stroke:#fff" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Log Observation</button>
+    </div>
+  </div>
+
+  <div id="banner"></div>
+
+  <div class="filter-bar">
+    <div class="f-field">
+      <label>Observer Name</label>
+      <select id="fObserver"><option>All</option></select>
+    </div>
+    <div class="f-field">
+      <label>Designation</label>
+      <select id="fDesignation"><option>All</option></select>
+    </div>
+    <div class="f-field">
+      <label>Status</label>
+      <select id="fStatus"><option>All</option><option>Open</option><option>Closed</option></select>
+    </div>
+    <div class="f-field grow">
+      <label>Global Search</label>
+      <input id="fSearch" placeholder="Search descriptions…">
+    </div>
+    <button class="btn btn-ghost" id="clearFiltersBtn">Clear all</button>
+  </div>
+
+  <div id="chipRow"></div>
+
+  <div class="kpis" id="kpiRow"></div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="overview">Overview</button>
+    <button class="tab-btn" data-tab="team">Reporters &amp; Designation</button>
+    <button class="tab-btn" data-tab="insights">Management Insights</button>
+    <button class="tab-btn" data-tab="log">Observation Log</button>
+  </div>
+
+  <div class="tab-panels">
+
+    <div class="tab-content active" data-tab="overview">
+      <div class="t-grid2">
+        <div class="t-panel">
+          <div class="panel-head"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-8 4 4"/></svg>Reporting Trend</div>
+          <p class="hint">Observations logged per day</p>
+          <div class="chart-box"><canvas id="trendChart"></canvas></div>
+        </div>
+        <div class="t-panel">
+          <div class="panel-head">Categories</div>
+          <p class="hint">Click a category to filter the dashboard</p>
+          <div class="donut-row">
+            <div class="donut-box"><canvas id="catDonut"></canvas></div>
+            <div class="legend-list" id="catLegend"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" data-tab="team">
+      <div class="t-grid2">
+        <div class="t-panel">
+          <div class="panel-head">By Designation</div>
+          <p class="hint">Click a bar to filter</p>
+          <div class="chart-box"><canvas id="desigChart"></canvas></div>
+        </div>
+        <div class="t-panel">
+          <div class="panel-head">Top Reporters</div>
+          <p class="hint">Click a reporter to filter</p>
+          <div class="reporter-list" id="topReporters"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" data-tab="insights">
+      <div class="t-grid3">
+        <div class="t-panel">
+          <div class="panel-head">Severity &amp; Risk Profile</div>
+          <p class="hint">Click a bar to filter</p>
+          <div class="chart-box"><canvas id="sevChart"></canvas></div>
+        </div>
+        <div class="t-panel">
+          <div class="panel-head">Location Hotspots</div>
+          <p class="hint">Ranked by count · color = worst severity</p>
+          <div class="hotspot-list" id="hotspotList"></div>
+        </div>
+        <div class="t-panel">
+          <div class="panel-head">Weekly Cadence</div>
+          <p class="hint">Observations logged per week</p>
+          <div class="chart-box"><canvas id="cadenceChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" data-tab="log">
+      <div class="panel-head">Observation Log <span class="sub" id="logCount"></span></div>
+      <p class="hint">Click a row or ▾ to expand full details</p>
+      <div class="log-scroll">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Personnel</th><th>Nature</th><th>Findings</th><th>Status</th><th>Details</th></tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <span id="sourceNote">Source: —</span>
+    <span id="countNote">—</span>
+  </footer>
+
+</div>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const SHEET_ID = "1PHBmq5O0yvU87yrlBbJ-inuWTGJMLNYgHnfZ0IXBS7I";
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+const REFRESH_MS = 5 * 60 * 1000;
+
+const PALETTE = ['#1E8E5A','#2F6FE0','#A98A1E','#1F3A5F','#6C4FD1','#D64545','#1E9E96','#8A8F98','#C9862C','#4B6F44'];
+
+const SAMPLE_CSV = `
+Timestamp,Date and Time of Observation,Location of Observation (Area/Department),Observer's Name,Type of Observation,What specifically was observed?,Category of Unsafe Act/Condition/Near Miss (Select all that apply),Immediate action taken (if any),Was the observed behavior/condition corrected on the spot?,Severity Potential of the Observation (If left uncorrected),Photo,Responsible Person,Email Address,Corrective Action Taken,Observer Designation,Status - Open /Closed
+04/02/2026 13:48:00,04/02/2026 13:10:00,KM-928,HAROON AHMED,Unsafe Act/Behavior (Person doing something wrong),Spray painter without respirator during coating activity,Procedure Violation/Lack of Training,Toolbox talk conducted on chemical safety,"Yes, by the involved party",2,,Sand tech subcon crew supervisor,,Toolbox talk conducted on chemical safety,Safety officer,Closed
+04/02/2026 15:28:00,04/02/2026 14:45:00,Camp Rest Area,MUJIB UR REHMAN,Unsafe Act/Behavior (Person doing something wrong),Bilingual heat stress awareness signage posted at site entrance,Occupation health safety/heat stress,Electrolytes distributed on the spot,"Yes, by the involved party",4,,Sand tech subcontractor,,Electrolytes distributed on the spot,Bus driver,Closed
+04/05/2026 19:07:00,04/05/2026 15:40:00,KM-934,KAMRAN KHAN,Unsafe Act/Behavior (Person doing something wrong),Toolbox talk on trench safety completed for full crew before shift,End cap missing,Access stopped and barricade installed,N/A - open item,2,,Pipe Stringging supervisor,,Pending — scheduled for follow-up inspection,Civil Site supervisor,Open
+04/07/2026 16:45:00,04/07/2026 16:10:00,KM-926,ABDUL QUADIR,Unsafe Act/Behavior (Person doing something wrong),Domestic waste bin overflowing near crew welfare facility,"Housekeeping/Clutter, Unwareness regarding company assets",Area cleared and signage placed,"Yes, by the observer",1,,Site Admin,,Area cleared and signage placed,HSE-OFFICER,Closed
+04/10/2026 10:04:00,04/10/2026 08:00:00,KM-924,MUJIB UR REHMAN,Unsafe Condition (Hazard in the environment),Electrolyte sachets distributed during peak heat hours,Unwareness regarding personnel health,Electrolytes distributed on the spot,"Yes, by the involved party",1,,Sand tech subcontractor,,Electrolytes distributed on the spot,Safety Officer,Closed
+04/10/2026 18:50:00,04/10/2026 17:30:00,KM-933,NADEEM,Unsafe Condition (Hazard in the environment),No wheel chocks used while truck parked on incline,"Road safety, Vehicle/Forklift Operation",Spotter assigned immediately,"Yes, by the involved party",4,,Trenching supervisor,,Spotter assigned immediately,Civil Site supervisor,Closed
+04/11/2026 11:02:00,04/11/2026 08:10:00,Km-929,HAROON AHMED,Unsafe Condition (Hazard in the environment),Spray painter without respirator during coating activity,Chemical/Material Handling,PPE issued on the spot,"No, pending supervisor action",3,,BQ environment CO-ordinator,,PPE issued on the spot,Safety Officer,Closed
+04/11/2026 18:43:00,04/11/2026 15:45:00,KM-935,KAMRAN KHAN,Unsafe Act/Behavior (Person doing something wrong),JCB operating close to unmarked underground utility line,"Procedure Violation/Lack of Training, End cap missing",Shoring inspection carried out immediately,"Yes, by the involved party",2,,Trenching supervisor,,Shoring inspection carried out immediately,Formen,Closed
+04/12/2026 11:49:00,04/12/2026 09:20:00,KM-923,ABDUL QUADIR,Unsafe Act/Behavior (Person doing something wrong),Scrap pipe offcuts left blocking walkway,Housekeeping/Clutter,Area cleared and signage placed,"Yes, by the involved party",1,,Environmental Coordinator,,Area cleared and signage placed,HSE OFFICER,Closed
+04/14/2026 12:31:00,04/14/2026 09:45:00,Trenching Zone A,KAMRAN KHAN,Positive Reinforcement (Good safety practice observed),Formwork material stacked unstably near platform edge,"End cap missing, Procedure Violation/Lack of Training",Shoring inspection carried out immediately,"No, pending supervisor action",4,,Pipe Stringging supervisor,,Shoring inspection carried out immediately,helper above the Dana,Closed
+04/15/2026 13:45:00,04/15/2026 12:20:00,KM-928,HAROON AHMED,Unsafe Act/Behavior (Person doing something wrong),MSDS sheets not available at point of use,Chemical/Material Handling,Toolbox talk conducted on chemical safety,"Yes, by the involved party",3,,BQ environment CO-ordinator,,Toolbox talk conducted on chemical safety,SAFETY OFFICER,Closed
+04/18/2026 15:33:00,04/18/2026 14:50:00,KM-926,ABDUL QUADIR,Unsafe Act/Behavior (Person doing something wrong),Mulching roller film abandoned near stringing area,Unwareness regarding company assets,Area cleared and signage placed,"Yes, by the observer",2,,Environmental Coordinator,,Area cleared and signage placed,HSE-OFFICER,Closed
+04/20/2026 13:24:00,04/20/2026 10:30:00,Km-929,HAROON AHMED,Unsafe Condition (Hazard in the environment),PPE compliance audit conducted with 100% pass rate for shift,"Unwareness regarding personnel health, Chemical/Material Handling",Shifted to proper HDPE container with label,"Yes, by the observer",4,,BQ environment CO-ordinator,,Shifted to proper HDPE container with label,SAFETY OFFICER,Closed
+04/23/2026 21:20:00,04/23/2026 17:40:00,Km-929,HAROON AHMED,Unsafe Act/Behavior (Person doing something wrong),Hand wash liquid soap dispenser empty at chemical work area,"Unwareness regarding personnel health, Chemical/Material Handling, Procedure Violation/Lack of Training",PPE issued on the spot,N/A - open item,4,,Sand tech subcon crew supervisor,,Pending — scheduled for follow-up inspection,Safety officer,Open
+04/23/2026 18:22:00,04/23/2026 17:50:00,KM-933,NADEEM,Unsafe Act/Behavior (Person doing something wrong),Driver using mobile phone while operating forklift,Procedure Violation/Lack of Training,Vehicle stopped and removed from activity,N/A - open item,3,,Dyna truck driver,,Pending — scheduled for follow-up inspection,Civil Site supervisor,Open
+04/24/2026 08:27:00,04/24/2026 06:30:00,Laydown area TCF,ASIM IDREES,Unsafe Act/Behavior (Person doing something wrong),Weekly fire drill conducted with full crew participation,Environmental,Recognition given to crew for good practice,"Yes, by the involved party",2,,Fire safety coordinator,,Recognition given to crew for good practice,HSE OFFICER,Closed
+04/30/2026 15:41:00,04/30/2026 15:20:00,KM-924,ABDUL QUADIR,Unsafe Condition (Hazard in the environment),Unused wooden pallets stacked untidily near access road,"Environmental, Unwareness regarding company assets","Housekeeping done, waste removed to designated point","Yes, by the observer",1,,Site Admin,,"Housekeeping done, waste removed to designated point",HSE officer,Closed
+05/01/2026 15:51:00,05/01/2026 15:10:00,KM-925,ABDUL QUADIR,Unsafe Condition (Hazard in the environment),Coordinated cleanup drive completed ahead of client audit,"Housekeeping/Clutter, Environmental, Unwareness regarding company assets",Waste segregated and disposed per procedure,N/A - open item,1,,Environmental Coordinator,,Pending — scheduled for follow-up inspection,HSE OFFICER,Open
+05/02/2026 11:36:00,05/02/2026 07:50:00,KM-926,ABDUL QUADIR,Unsafe Condition (Hazard in the environment),Empty cement bags not disposed of in designated waste bin,Housekeeping/Clutter,Cleanup crew mobilized immediately,"Yes, by the observer",1,,Housekeeping supervisor,,Cleanup crew mobilized immediately,HSE-OFFICER,Closed
+05/02/2026 15:13:00,05/02/2026 13:15:00,KM-925,MUJIB UR REHMAN,Unsafe Act/Behavior (Person doing something wrong),Electrolyte sachets distributed during peak heat hours,"Occupation health safety/heat stress, Unwareness regarding personnel health",Heat stress briefing conducted for crew,"Yes, by the observer",2,,BQ medical person,,Heat stress briefing conducted for crew,Bus driver,Closed
+05/03/2026 17:01:00,05/03/2026 13:30:00,KM-934,KAMRAN KHAN,Unsafe Condition (Hazard in the environment),JCB operating close to unmarked underground utility line,"End cap missing, Procedure Violation/Lack of Training",End cap reinstalled on the spot,"Yes, by the involved party",2,,Trenching supervisor,,End cap reinstalled on the spot,Civil Site supervisor,Closed
+05/04/2026 18:28:00,05/04/2026 16:20:00,Camp Rest Area,MUJIB UR REHMAN,Unsafe Condition (Hazard in the environment),Bilingual heat stress awareness signage posted at site entrance,"Occupation health safety/heat stress, Unwareness regarding personnel health",Umbrella and rest shelter provided,"Yes, by the observer",2,,Environmental coordinator,,Umbrella and rest shelter provided,Helper,Closed
+05/05/2026 11:49:00,05/05/2026 10:30:00,Laydown area TCF,ASIM IDREES,Positive Reinforcement (Good safety practice observed),New fire extinguishers installed at 4 additional checkpoints,"Environmental, RACS Standard violation (MMSR)",Signage refreshed and reinstalled,"Yes, by the observer",2,,Fire safety coordinator,,Signage refreshed and reinstalled,N/A,Closed
+05/05/2026 15:48:00,05/05/2026 14:15:00,Camp Rest Area,MUJIB UR REHMAN,Unsafe Act/Behavior (Person doing something wrong),Umbrella shield provided for workers exposed to direct sunlight,"Environmental, Unwareness regarding personnel health, Occupation health safety/heat stress",Heat stress briefing conducted for crew,"Yes, by the observer",1,,Environmental coordinator,,Heat stress briefing conducted for crew,Safety Officer,Closed
+05/05/2026 19:35:00,05/05/2026 16:20:00,KM-925,ABDUL QUADIR,Unsafe Act/Behavior (Person doing something wrong),Scrap pipe offcuts left blocking walkway,Unwareness regarding company assets,Cleanup crew mobilized immediately,"Yes, by the involved party",2,,Housekeeping supervisor,,Cleanup crew mobilized immediately,HSE-OFFICER,Closed
+05/06/2026 14:41:00,05/06/2026 13:40:00,KM-925,ABDUL QUADIR,Unsafe Act/Behavior (Person doing something wrong),Empty cement bags not disposed of in designated waste bin,Unwareness regarding company assets,Cleanup crew mobilized immediately,"Yes, by the involved party",1,,Housekeeping supervisor,,Cleanup crew mobilized immediately,HSE OFFICER,Closed
+05/06/2026 16:32:00,05/06/2026 14:00:00,Laydown area TCF,ASIM IDREES,Unsafe Condition (Hazard in the environment),Hot work permit displayed and fire blanket available on site,Environmental,Signage refreshed and reinstalled,"Yes, by the observer",1,,HSE OFFICER,,Signage refreshed and reinstalled,N/A,Closed
+05/07/2026 15:23:00,05/07/2026 14:40:00,KM-932,NADEEM,Unsafe Act/Behavior (Person doing something wrong),New speed bumps installed at blind junction near camp gate,"Procedure Violation/Lack of Training, Road safety, Vehicle/Forklift Operation",Spotter assigned immediately,"Yes, by the involved party",3,,Dyna truck driver,,Spotter assigned immediately,HSSE Officer,Closed
+05/08/2026 11:48:00,05/08/2026 09:00:00,KM-928,HAROON AHMED,Unsafe Condition (Hazard in the environment),Hand wash liquid soap dispenser empty at chemical work area,"Procedure Violation/Lack of Training, Unwareness regarding personnel health",Toolbox talk conducted on chemical safety,N/A - open item,3,,Sand tech subcon crew supervisor,,Pending — scheduled for follow-up inspection,Safety Officer,Open
+05/08/2026 13:02:00,05/08/2026 09:45:00,Laydown area TCF,ASIM IDREES,Positive Reinforcement (Good safety practice observed),Missing fire extinguisher tag/inspection sticker,"RACS Standard violation (MMSR), Fire Safety/Egress Issues",Recognition given to crew for good practice,"Yes, by the observer",3,,BQ medical person,,Recognition given to crew for good practice,HSE OFFICER,Closed
+05/08/2026 20:18:00,05/08/2026 17:15:00,Laydown area TCF,ASIM IDREES,Positive Reinforcement (Good safety practice observed),Hot work permit displayed and fire blanket available on site,Environmental,Fire extinguisher replaced and tagged,"Yes, by the observer",1,,HSE OFFICER,,Fire extinguisher replaced and tagged,HSE OFFICER,Closed
+05/09/2026 13:37:00,05/09/2026 12:00:00,KM-932,NADEEM,Unsafe Condition (Hazard in the environment),Side boom operator missed daily pre-use inspection checklist,"Procedure Violation/Lack of Training, Road safety",Spotter assigned immediately,"Yes, by the involved party",3,,Fleet supervisor,,Spotter assigned immediately,HSSE Officer,Closed
+05/09/2026 17:23:00,05/09/2026 15:45:00,KM-924,MUJIB UR REHMAN,Positive Reinforcement (Good safety practice observed),Nurse conducted on-site vitals check for entire crew,"Occupation health safety/heat stress, Unwareness regarding personnel health",Heat stress briefing conducted for crew,"Yes, by the involved party",1,,BQ medical person,,Heat stress briefing conducted for crew,Bus driver,Closed
+05/10/2026 17:46:00,05/10/2026 15:45:00,Laydown area TCF,ASIM IDREES,Unsafe Condition (Hazard in the environment),Fire hydrant access point kept clear and signposted,"Fire Safety/Egress Issues, RACS Standard violation (MMSR)",Fire extinguisher replaced and tagged,"Yes, by the observer",3,,BQ medical person,,Fire extinguisher replaced and tagged,N/A,Closed
+05/11/2026 11:51:00,05/11/2026 09:50:00,KM-925,ABDUL QUADIR,Unsafe Condition (Hazard in the environment),Food waste and packaging left scattered near crew rest area,Housekeeping/Clutter,Cleanup crew mobilized immediately,"Yes, by the involved party",2,,Site Admin,,Cleanup crew mobilized immediately,HSE officer,Closed
+05/11/2026 11:29:00,05/11/2026 10:40:00,KM-924,MUJIB UR REHMAN,Unsafe Act/Behavior (Person doing something wrong),"Medical checkup drive conducted, 2 workers found with high BP","Unwareness regarding personnel health, Environmental",Umbrella and rest shelter provided,N/A - open item,2,,Environmental coordinator,,Pending — scheduled for follow-up inspection,Bus driver,Open
+05/13/2026 07:36:00,05/13/2026 06:10:00,KM-927,HAROON AHMED,Unsafe Act/Behavior (Person doing something wrong),Hand wash liquid soap dispenser empty at chemical work area,"Procedure Violation/Lack of Training, Chemical/Material Handling",Toolbox talk conducted on chemical safety,"No, pending supervisor action",4,,BQ environment CO-ordinator,,Toolbox talk conducted on chemical safety,SAFETY OFFICER,Closed
+05/14/2026 11:30:00,05/14/2026 10:15:00,KM-923,ABDUL QUADIR,Unsafe Act/Behavior (Person doing something wrong),Coordinated cleanup drive completed ahead of client audit,"Housekeeping/Clutter, Environmental",Cleanup crew mobilized immediately,"Yes, by the involved party",2,,Housekeeping supervisor,,Cleanup crew mobilized immediately,HSE officer,Closed
+05/15/2026 11:37:00,05/15/2026 10:20:00,Km-927,HAROON AHMED,Unsafe Act/Behavior (Person doing something wrong),Chemical drums stored without secondary containment tray,"Chemical/Material Handling, Unwareness regarding personnel health",PPE issued on the spot,"Yes, by the involved party",2,,Coating supervisor,,PPE issued on the spot,Safety Officer,Closed
+05/15/2026 14:22:00,05/15/2026 12:40:00,KM-926,MUJIB UR REHMAN,Unsafe Condition (Hazard in the environment),Worker showing signs of heat exhaustion during midday shift,"Unwareness regarding personnel health, Environmental",Heat stress briefing conducted for crew,"Yes, by the observer",3,,BQ medical person,,Heat stress briefing conducted for crew,Safety Officer,Closed
+05/16/2026 14:43:00,05/16/2026 10:45:00,KM-930,NADEEM,Unsafe Act/Behavior (Person doing something wrong),Reversing alarm non-functional on water tanker,"Procedure Violation/Lack of Training, Vehicle/Forklift Operation",Obstruction cleared from ROW,N/A - open item,4,,Dyna truck driver,,Pending — scheduled for follow-up inspection,Civil Site supervisor,Open
+05/19/2026 11:22:00,05/19/2026 07:30:00,KM-925,ABDUL QUADIR,Unsafe Act/Behavior (Person doing something wrong),Unused wooden pallets stacked untidily near access road,Environmental,Area cleared and signage placed,"Yes, by the involved party",2,,Environmental Coordinator,,Area cleared and signage placed,HSE officer,Closed
+05/23/2026 13:56:00,05/23/2026 11:50:00,KM-932,NADEEM,Unsafe Act/Behavior (Person doing something wrong),Defensive driving refresher completed for all crew drivers,Vehicle/Forklift Operation,Spotter assigned immediately,"Yes, by the observer",2,,Trenching supervisor,,Spotter assigned immediately,Truck driver,Closed
+05/25/2026 10:20:00,05/25/2026 10:00:00,KM-928,HAROON AHMED,Unsafe Act/Behavior (Person doing something wrong),Chemical drums stored without secondary containment tray,"Unwareness regarding personnel health, Procedure Violation/Lack of Training",Shifted to proper HDPE container with label,N/A - open item,2,,BQ environment CO-ordinator,,Pending — scheduled for follow-up inspection,Safety Officer,Open
+05/25/2026 17:17:00,05/25/2026 16:40:00,Laydown area TCF,ASIM IDREES,Positive Reinforcement (Good safety practice observed),Fire watch log properly maintained for entire shift,Fire Safety/Egress Issues,Fire extinguisher replaced and tagged,"Yes, by the involved party",3,,HSE OFFICER,,Fire extinguisher replaced and tagged,HSEO,Closed
+05/27/2026 17:26:00,05/27/2026 14:30:00,Km-929,HAROON AHMED,Unsafe Condition (Hazard in the environment),MSDS sheets not available at point of use,Procedure Violation/Lack of Training,Eyewash station installed,N/A - open item,4,,Sand tech subcon crew supervisor,,Pending — scheduled for follow-up inspection,Safety officer,Open
+05/29/2026 08:19:00,05/29/2026 06:15:00,KM-934,KAMRAN KHAN,Unsafe Condition (Hazard in the environment),Damaged unsecured wooden stairs used for access to trench,End cap missing,Excavation permit reviewed and corrected,"Yes, by the observer",4,,Civil Site supervisor,,Excavation permit reviewed and corrected,JCB operator,Closed
+05/31/2026 18:54:00,05/31/2026 16:10:00,Laydown area TCF,ASIM IDREES,Unsafe Condition (Hazard in the environment),Fire watch log properly maintained for entire shift,Fire Safety/Egress Issues,Egress route cleared immediately,"Yes, by the involved party",4,,BQ medical person,,Egress route cleared immediately,HSE OFFICER,Closed
+05/31/2026 19:43:00,05/31/2026 17:45:00,Trenching Zone A,KAMRAN KHAN,Unsafe Condition (Hazard in the environment),Near miss: spoil pile collapsed partially near active trench,End cap missing,Access stopped and barricade installed,"No, pending supervisor action",2,,Civil Site supervisor,,Access stopped and barricade installed,Civil Site supervisor,Closed
+06/01/2026 10:20:00,06/01/2026 09:45:00,KM-927,HAROON AHMED,Unsafe Condition (Hazard in the environment),PPE compliance audit conducted with 100% pass rate for shift,Chemical/Material Handling,PPE issued on the spot,N/A - open item,4,,Coating supervisor,,Pending — scheduled for follow-up inspection,Safety officer,Open
+06/01/2026 11:15:00,06/01/2026 10:30:00,Laydown area TCF,ASIM IDREES,Unsafe Condition (Hazard in the environment),Hot work permit displayed and fire blanket available on site,RACS Standard violation (MMSR),Egress route cleared immediately,"Yes, by the involved party",2,,HSE OFFICER,,Egress route cleared immediately,HSE OFFICER,Closed
+06/02/2026 12:40:00,06/02/2026 09:15:00,KM-923,ABDUL QUADIR,Unsafe Condition (Hazard in the environment),Food waste and packaging left scattered near crew rest area,Housekeeping/Clutter,Cleanup crew mobilized immediately,"Yes, by the involved party",3,,Site Admin,,Cleanup crew mobilized immediately,HSE-OFFICER,Closed
+06/08/2026 15:25:00,06/08/2026 13:40:00,KM-934,KAMRAN KHAN,Unsafe Act/Behavior (Person doing something wrong),JCB operating close to unmarked underground utility line,"Procedure Violation/Lack of Training, End cap missing",Excavation permit reviewed and corrected,"No, pending supervisor action",4,,Pipe Stringging supervisor,,Excavation permit reviewed and corrected,Formen,Closed
+06/10/2026 09:24:00,06/10/2026 06:10:00,KM-923,ABDUL QUADIR,Positive Reinforcement (Good safety practice observed),Mulching roller film abandoned near stringing area,Unwareness regarding company assets,Area cleared and signage placed,"Yes, by the observer",2,,Housekeeping supervisor,,Area cleared and signage placed,HSE officer,Closed
+06/12/2026 16:06:00,06/12/2026 14:40:00,KM-927,HAROON AHMED,Unsafe Act/Behavior (Person doing something wrong),Chemical drums stored without secondary containment tray,"Chemical/Material Handling, Unwareness regarding personnel health",Toolbox talk conducted on chemical safety,"Yes, by the observer",3,,BQ environment CO-ordinator,,Toolbox talk conducted on chemical safety,SAFETY OFFICER,Closed
+06/17/2026 14:58:00,06/17/2026 12:20:00,KM-926,ABDUL QUADIR,Unsafe Condition (Hazard in the environment),Coordinated cleanup drive completed ahead of client audit,Housekeeping/Clutter,Cleanup crew mobilized immediately,N/A - open item,2,,Site Admin,,Pending — scheduled for follow-up inspection,HSE-OFFICER,Open
+06/18/2026 18:31:00,06/18/2026 16:45:00,KM-922,ASIM IDREES,Unsafe Condition (Hazard in the environment),New fire extinguishers installed at 4 additional checkpoints,"Environmental, Fire Safety/Egress Issues",Egress route cleared immediately,"Yes, by the observer",3,,HSE OFFICER,,Egress route cleared immediately,HSEO,Closed
+06/20/2026 11:19:00,06/20/2026 10:20:00,KM-925,ABDUL QUADIR,Unsafe Condition (Hazard in the environment),Plastic waste from lunch boxes littered near laydown yard,Environmental,Cleanup crew mobilized immediately,"Yes, by the observer",2,,Environmental Coordinator,,Cleanup crew mobilized immediately,HSE officer,Closed
+06/20/2026 18:43:00,06/20/2026 15:20:00,KM-931,NADEEM,Unsafe Condition (Hazard in the environment),Driver using mobile phone while operating forklift,Vehicle/Forklift Operation,Vehicle stopped and removed from activity,"Yes, by the involved party",2,,Trenching supervisor,,Vehicle stopped and removed from activity,Civil Site supervisor,Closed
+06/24/2026 09:59:00,06/24/2026 07:30:00,KM-933,NADEEM,Unsafe Act/Behavior (Person doing something wrong),Defensive driving refresher completed for all crew drivers,Road safety,Stand-down meeting conducted with driver,N/A - open item,3,,Trenching supervisor,,Pending — scheduled for follow-up inspection,HSSE Officer,Open
+06/26/2026 14:53:00,06/26/2026 14:15:00,KM-934,KAMRAN KHAN,Unsafe Condition (Hazard in the environment),Formwork material stacked unstably near platform edge,Unsecured working platform,Access stopped and barricade installed,"No, pending supervisor action",3,,Pipe Stringging supervisor,,Access stopped and barricade installed,helper above the Dana,Closed
+06/27/2026 11:00:00,06/27/2026 09:10:00,KM-929,HAROON AHMED,Unsafe Act/Behavior (Person doing something wrong),Missing eyewash station near chemical storage area,"Chemical/Material Handling, Unwareness regarding personnel health",Shifted to proper HDPE container with label,N/A - open item,2,,Sand tech subcon crew supervisor,,Pending — scheduled for follow-up inspection,Safety officer,Open
+06/28/2026 11:53:00,06/28/2026 08:00:00,KM-929,HAROON AHMED,Unsafe Act/Behavior (Person doing something wrong),MSDS sheets not available at point of use,Unwareness regarding personnel health,Shifted to proper HDPE container with label,"No, pending supervisor action",3,,Sand tech subcon crew supervisor,,Shifted to proper HDPE container with label,Safety Officer,Closed
+06/28/2026 10:31:00,06/28/2026 10:00:00,KM-933,KAMRAN KHAN,Unsafe Condition (Hazard in the environment),Toolbox talk on trench safety completed for full crew before shift,"Unsecured working platform, End cap missing",Access stopped and barricade installed,"Yes, by the involved party",3,,Trenching supervisor,,Access stopped and barricade installed,helper above the Dana,Closed
+06/28/2026 12:14:00,06/28/2026 10:45:00,KM-924,MUJIB UR REHMAN,Unsafe Condition (Hazard in the environment),Worker showing signs of heat exhaustion during midday shift,"Occupation health safety/heat stress, Unwareness regarding personnel health",Heat stress briefing conducted for crew,"Yes, by the observer",1,,BQ medical person,,Heat stress briefing conducted for crew,Safety Officer,Closed
+07/01/2026 15:58:00,07/01/2026 13:00:00,KM-934,KAMRAN KHAN,Unsafe Condition (Hazard in the environment),JCB operating close to unmarked underground utility line,"End cap missing, Procedure Violation/Lack of Training",Excavation permit reviewed and corrected,N/A - open item,3,,Civil Site supervisor,,Pending — scheduled for follow-up inspection,Civil Site supervisor,Open
+07/03/2026 17:27:00,07/03/2026 14:30:00,KM-921,ASIM IDREES,Positive Reinforcement (Good safety practice observed),Missing fire extinguisher tag/inspection sticker,"Fire Safety/Egress Issues, Environmental",Egress route cleared immediately,"Yes, by the observer",4,,BQ medical person,,Egress route cleared immediately,HSEO,Closed
+07/05/2026 15:49:00,07/05/2026 14:00:00,KM-921,ASIM IDREES,Positive Reinforcement (Good safety practice observed),Hot work permit displayed and fire blanket available on site,"Environmental, RACS Standard violation (MMSR)",Fire extinguisher replaced and tagged,"Yes, by the observer",3,,BQ medical person,,Fire extinguisher replaced and tagged,HSEO,Closed
+07/09/2026 10:56:00,07/09/2026 09:40:00,KM-935,KAMRAN KHAN,Unsafe Act/Behavior (Person doing something wrong),JCB operating close to unmarked underground utility line,End cap missing,Access stopped and barricade installed,"Yes, by the involved party",3,,Pipe Stringging supervisor,,Access stopped and barricade installed,helper above the Dana,Closed
+07/12/2026 16:10:00,07/12/2026 12:15:00,KM-933,NADEEM,Unsafe Condition (Hazard in the environment),Defensive driving refresher completed for all crew drivers,"Vehicle/Forklift Operation, Road safety, Procedure Violation/Lack of Training",Stand-down meeting conducted with driver,"Yes, by the involved party",3,,Fleet supervisor,,Stand-down meeting conducted with driver,HSSE Officer,Closed
+07/14/2026 21:37:00,07/14/2026 17:45:00,KM-931,NADEEM,Positive Reinforcement (Good safety practice observed),Abrasive blasting truck tyre found worn beyond safe limit,"Vehicle/Forklift Operation, Road safety",Stand-down meeting conducted with driver,N/A - open item,3,,Fleet supervisor,,Pending — scheduled for follow-up inspection,Civil Site supervisor,Open
+07/15/2026 10:10:00,07/15/2026 07:45:00,KM-922,ASIM IDREES,Positive Reinforcement (Good safety practice observed),Fire extinguisher found expired at welding station,"Environmental, RACS Standard violation (MMSR), Fire Safety/Egress Issues",Signage refreshed and reinstalled,"Yes, by the involved party",2,,BQ medical person,,Signage refreshed and reinstalled,HSEO,Closed
+07/17/2026 18:35:00,07/17/2026 15:00:00,Camp Rest Area,MUJIB UR REHMAN,Positive Reinforcement (Good safety practice observed),Nurse conducted on-site vitals check for entire crew,Environmental,Umbrella and rest shelter provided,"Yes, by the involved party",3,,Sand tech subcontractor,,Umbrella and rest shelter provided,Safety Officer,Closed
+`;
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let ALL_ROWS = [];
+let charts = {};
+const FILTERS = { observer:'All', designation:'All', status:'All', search:'', category:null, location:null, quick:null, _sev:null };
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function setSync(bad, text){
+  document.getElementById('syncDot').className = 'dot' + (bad?' bad':'');
+  document.getElementById('syncText').textContent = text;
+}
+function showBanner(html){ const b=document.getElementById('banner'); b.innerHTML=html; b.style.display='block'; }
+function hideBanner(){ document.getElementById('banner').style.display='none'; }
+function normLoc(loc){ return (loc||'').toUpperCase().replace(/\(.*?\)/g,'').trim().split('/')[0].split(' ')[0]; }
+function isPositive(type){ return /positive/i.test(type||''); }
+function isOpenStatus(status){ return /open/i.test(status||''); }
+function sevColor(s){ return s>=4?'#7A2E24':s===3?'#D64545':s===2?'#A98A1E':'#1E8E5A'; }
+function parseDate(str){
+  if(!str) return null;
+  const d = new Date(str.trim());
+  return isNaN(d.getTime()) ? null : d;
+}
+function weekKey(d){
+  const onejan = new Date(d.getFullYear(),0,1);
+  const week = Math.ceil((((d - onejan) / 86400000) + onejan.getDay()+1)/7);
+  return d.getFullYear()+'-W'+String(week).padStart(2,'0');
+}
+
+function parseRows(csvText){
+  const parsed = Papa.parse(csvText, {header:true, skipEmptyLines:true});
+  return parsed.data.map(r=>{
+    const keys = Object.keys(r);
+    const find = (needle) => { const k = keys.find(k=>k.toLowerCase().includes(needle)); return k?(r[k]||'').trim():''; };
+    return {
+      dateObs: find('date and time of observation') || find('timestamp'),
+      location: find('location of observation') || find('location'),
+      observer: find("observer's name") || find('observer name') || 'Unknown',
+      type: find('type of observation'),
+      what: find('what specifically'),
+      category: find('category of unsafe'),
+      severity: parseInt(find('severity potential')) || 1,
+      immediateAction: find('immediate action'),
+      correctedOnSpot: find('corrected on the spot'),
+      responsible: find('responsible person'),
+      correctiveAction: find('corrective action taken'),
+      designation: find('observer designation') || 'N/A',
+      status: find('status - open') || find('status') || 'Closed',
+    };
+  }).filter(r=>r.location);
+}
+
+/* ============================================================
+   FILTERING
+   ============================================================ */
+function rowMatchesCategory(r, cat){ return (r.category||'').split(',').map(s=>s.trim()).includes(cat); }
+function getFilteredRows(){
+  return ALL_ROWS.filter(r=>{
+    if(FILTERS.observer!=='All' && r.observer!==FILTERS.observer) return false;
+    if(FILTERS.designation!=='All' && r.designation!==FILTERS.designation) return false;
+    if(FILTERS.status!=='All'){
+      const wantOpen = FILTERS.status==='Open';
+      if(isOpenStatus(r.status)!==wantOpen) return false;
+    }
+    if(FILTERS.search){
+      const hay = (r.what+' '+r.category+' '+r.location+' '+r.observer).toLowerCase();
+      if(!hay.includes(FILTERS.search.toLowerCase())) return false;
+    }
+    if(FILTERS.category && !rowMatchesCategory(r, FILTERS.category)) return false;
+    if(FILTERS.location && normLoc(r.location)!==FILTERS.location) return false;
+    if(FILTERS.quick==='unsafe' && isPositive(r.type)) return false;
+    if(FILTERS.quick==='positive' && !isPositive(r.type)) return false;
+    if(FILTERS._sev){
+      const sevMatch = FILTERS._sev===4 ? (r.severity>=4) : (r.severity===FILTERS._sev);
+      if(!sevMatch) return false;
+    }
+    return true;
+  });
+}
+
+function renderChips(){
+  const chips = [];
+  if(FILTERS.category) chips.push(['Category: '+FILTERS.category, ()=>{FILTERS.category=null; renderAll();}]);
+  if(FILTERS.location) chips.push(['Location: '+FILTERS.location, ()=>{FILTERS.location=null; renderAll();}]);
+  if(FILTERS.quick) chips.push([FILTERS.quick==='unsafe'?'Quick: Unsafe only':'Quick: Positive only', ()=>{FILTERS.quick=null; renderAll();}]);
+  if(FILTERS._sev) chips.push(['Severity: Sev '+FILTERS._sev, ()=>{FILTERS._sev=null; renderAll();}]);
+  const row = document.getElementById('chipRow');
+  row.innerHTML = chips.map((c,i)=>`<span class="chip-x">${c[0]}<button data-i="${i}">✕</button></span>`).join('');
+  Array.from(row.querySelectorAll('button')).forEach((btn,i)=>btn.addEventListener('click', chips[i][1]));
+}
+
+/* ============================================================
+   MAIN RENDER PIPELINE
+   ============================================================ */
+function renderAll(){
+  const rows = getFilteredRows();
+  renderChips();
+  renderKpis(rows);
+  renderTrend(rows);
+  renderCategoryDonut(rows);
+  renderDesignation(rows);
+  renderTopReporters(rows);
+  renderSeverity(rows);
+  renderHotspots(rows);
+  renderCadence(rows);
+  renderTable(rows);
+  document.getElementById('logCount').textContent = rows.length + ' shown of ' + ALL_ROWS.length;
+}
+
+function svgIcon(path, extra){ return `<svg class="ic" style="${extra||''}" viewBox="0 0 24 24">${path}</svg>`; }
+const ICONS = {
+  doc: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  shield: '<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/>',
+  warn: '<path d="M12 3l9 16H3L12 3z"/><path d="M12 10v4"/><path d="M12 17.5h.01"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="M8.5 12l2.5 2.5L16 9"/>'
+};
+
+function renderKpis(rows){
+  const total = ALL_ROWS.length;
+  const shown = rows.length;
+  const positive = rows.filter(r=>isPositive(r.type)).length;
+  const unsafe = shown - positive;
+  const closed = rows.filter(r=>!isOpenStatus(r.status)).length;
+  const closureRate = shown ? ((closed/shown)*100).toFixed(1) : '0.0';
+  const pctPositive = shown ? Math.round(100*positive/shown) : 0;
+  const pctUnsafe = shown ? Math.round(100*unsafe/shown) : 0;
+
+  const cards = [
+    {cls:'k-blue', quick:null, icon:ICONS.doc, badge:null, num:shown, lbl:'TOTAL REPORTS', cap:`${total} database entries`},
+    {cls:'k-green', quick:'positive', icon:ICONS.shield, badge:pctPositive+'%', num:positive, lbl:'SAFE PRACTICES', cap:'Positive observations'},
+    {cls:'k-red', quick:'unsafe', icon:ICONS.warn, badge:pctUnsafe+'%', num:unsafe, lbl:'UNSAFE ACTS', cap:'Corrective actions needed'},
+    {cls:'k-olive', quick:null, icon:ICONS.check, badge:null, num:closureRate+'%', lbl:'CLOSURE RATE', cap:`${closed} issues resolved`},
+  ];
+  document.getElementById('kpiRow').innerHTML = cards.map(c=>`
+    <div class="kpi ${c.cls} ${FILTERS.quick===c.quick && c.quick ? 'active':''}" data-quick="${c.quick||''}">
+      <div class="kpi-top"><div class="kpi-ic">${svgIcon(c.icon,'width:15px;height:15px')}</div>${c.badge?`<div class="kpi-badge">${c.badge}</div>`:''}</div>
+      <div class="num">${c.num}</div>
+      <div class="lbl">${c.lbl}</div>
+      <div class="cap">${c.cap}</div>
+    </div>`).join('');
+  Array.from(document.querySelectorAll('.kpi')).forEach(el=>{
+    const q = el.getAttribute('data-quick');
+    if(q){ el.addEventListener('click', ()=>{ FILTERS.quick = FILTERS.quick===q ? null : q; renderAll(); }); }
+  });
+}
+
+function renderTrend(rows){
+  const byDay = {};
+  rows.forEach(r=>{ const d=parseDate(r.dateObs); if(!d) return; const k=d.toISOString().slice(0,10); byDay[k]=(byDay[k]||0)+1; });
+  const days = Object.keys(byDay).sort();
+  drawLineChart('trendChart', days, days.map(d=>byDay[d]));
+}
+
+function renderCategoryDonut(rows){
+  const counts = {};
+  rows.forEach(r=> (r.category||'').split(',').forEach(c=>{ c=c.trim(); if(c) counts[c]=(counts[c]||0)+1; }));
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const labels = sorted.map(s=>s[0]);
+  const data = sorted.map(s=>s[1]);
+  const colors = labels.map((l,i)=> PALETTE[i % PALETTE.length]);
+  drawDoughnut('catDonut', labels, data, colors, (label)=>{ FILTERS.category = FILTERS.category===label?null:label; renderAll(); });
+  document.getElementById('catLegend').innerHTML = labels.map((l,i)=>`
+    <div class="leg-row ${FILTERS.category===l?'active':''}" data-l="${i}">
+      <span class="leg-dot" style="background:${colors[i]}"></span>
+      <span class="leg-name" title="${l}">${l}</span>
+      <span class="leg-count">${data[i]}</span>
+    </div>`).join('');
+  Array.from(document.querySelectorAll('#catLegend .leg-row')).forEach((el,i)=>{
+    el.addEventListener('click', ()=>{ FILTERS.category = FILTERS.category===labels[i]?null:labels[i]; renderAll(); });
+  });
+}
+
+function renderDesignation(rows){
+  const counts = {};
+  rows.forEach(r=>{ const d=r.designation||'N/A'; counts[d]=(counts[d]||0)+1; });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  drawBar('desigChart', sorted.map(s=>s[0]), sorted.map(s=>s[1]), (label)=>{ FILTERS.designation = FILTERS.designation===label?'All':label; syncDropdowns(); renderAll(); });
+}
+
+function renderTopReporters(rows){
+  const counts = {};
+  rows.forEach(r=>{ counts[r.observer]=(counts[r.observer]||0)+1; });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  document.getElementById('topReporters').innerHTML = sorted.map((s,i)=>`
+    <div class="rep-row ${FILTERS.observer===s[0]?'active':''}" data-name="${s[0]}">
+      <div class="rep-rank ${i===0?'gold':''}">${i+1}</div>
+      <div class="rep-name">${s[0]}</div>
+      <div class="rep-count">${s[1]} reports</div>
+    </div>`).join('');
+  Array.from(document.querySelectorAll('#topReporters .rep-row')).forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const name = el.getAttribute('data-name');
+      FILTERS.observer = FILTERS.observer===name ? 'All' : name;
+      syncDropdowns(); renderAll();
+    });
+  });
+}
+
+function renderSeverity(rows){
+  const counts = {1:0,2:0,3:0,4:0};
+  rows.forEach(r=>{ const s = r.severity>=4?4:(r.severity||1); counts[s]=(counts[s]||0)+1; });
+  const labels = ['Sev 1','Sev 2','Sev 3','Sev 4'];
+  const data = [counts[1],counts[2],counts[3],counts[4]];
+  const colors = ['#1E8E5A','#A98A1E','#D64545','#7A2E24'];
+  drawBar('sevChart', labels, data, (label)=>{
+    const sevNum = parseInt(label.split(' ')[1]);
+    FILTERS._sev = FILTERS._sev===sevNum ? null : sevNum;
+    renderAll();
+  }, colors);
+}
+
+function renderHotspots(rows){
+  const map = new Map();
+  rows.forEach(r=>{ const loc=normLoc(r.location); if(!map.has(loc)) map.set(loc,[]); map.get(loc).push(r); });
+  const sorted = Array.from(map.entries()).sort((a,b)=>b[1].length-a[1].length).slice(0,12);
+  const maxCount = sorted.length ? sorted[0][1].length : 1;
+  document.getElementById('hotspotList').innerHTML = sorted.map(([loc, items])=>{
+    const maxSev = Math.max(...items.map(r=>r.severity||1));
+    const pct = Math.round(100*items.length/maxCount);
+    return `<div class="hs-row ${FILTERS.location===loc?'active':''}" data-loc="${loc}">
+      <span class="hs-km" title="${loc}">${loc}</span>
+      <span class="hs-bar-track"><span class="hs-bar-fill" style="width:${pct}%; background:${sevColor(maxSev)}"></span></span>
+      <span class="hs-count">${items.length}</span>
+    </div>`;
+  }).join('');
+  Array.from(document.querySelectorAll('#hotspotList .hs-row')).forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const loc = el.getAttribute('data-loc');
+      FILTERS.location = FILTERS.location===loc ? null : loc;
+      renderAll();
+    });
+  });
+}
+
+function renderCadence(rows){
+  const byWeek = {};
+  rows.forEach(r=>{ const d=parseDate(r.dateObs); if(!d) return; const k=weekKey(d); byWeek[k]=(byWeek[k]||0)+1; });
+  const weeks = Object.keys(byWeek).sort();
+  drawBar('cadenceChart', weeks.map(w=>w.split('-W')[1]?('W'+w.split('-W')[1]):w), weeks.map(w=>byWeek[w]), null, '#2F6FE0');
+}
+
+function renderTable(rows){
+  const sorted = [...rows].sort((a,b)=>{
+    const da = parseDate(a.dateObs), db = parseDate(b.dateObs);
+    return (db?db.getTime():0) - (da?da.getTime():0);
+  });
+
+  const body = document.getElementById('logBody');
+  if(!sorted.length){
+    body.innerHTML = `<tr><td colspan="6" class="no-results">No observations match the current filters.</td></tr>`;
+    return;
+  }
+  body.innerHTML = sorted.map((r,i)=>{
+    const pos = isPositive(r.type);
+    const open = isOpenStatus(r.status);
+    const tags = (r.category||'').split(',').map(s=>s.trim()).filter(Boolean).map(t=>`<span class="tag">${t}</span>`).join('');
+    return `
+    <tr class="main-row" data-i="${i}">
+      <td class="km-cell">${(r.dateObs||'').split(' ')[0]||'—'}</td>
+      <td class="person"><b>${r.observer}</b><span>${r.designation}</span></td>
+      <td><span class="pill ${pos?'positive':'unsafe'}">${pos?'POSITIVE':'UNSAFE'}</span></td>
+      <td class="findings-cell">${(r.what||'').slice(0,90)}${(r.what||'').length>90?'…':''}</td>
+      <td><span class="pill ${open?'open':'closed'}">${open?'OPEN':'CLOSED'}</span></td>
+      <td><button class="expand-btn" data-i="${i}">▾</button></td>
+    </tr>
+    <tr class="detail-row" id="detail-${i}" style="display:none;"><td colspan="6">
+      <div class="detail-grid">
+        <p><b>Location</b>${r.location||'—'}</p>
+        <p><b>Severity</b>Level ${r.severity||1} of 4</p>
+        <p><b>Category tags</b>${tags||'—'}</p>
+        <p><b>Immediate action</b>${r.immediateAction||'—'}</p>
+        <p><b>Corrected on the spot</b>${r.correctedOnSpot||'—'}</p>
+        <p><b>Responsible person</b>${r.responsible||'—'}</p>
+        <p><b>Corrective action taken</b>${r.correctiveAction||'—'}</p>
+      </div>
+    </td></tr>`;
+  }).join('');
+  Array.from(document.querySelectorAll('.expand-btn')).forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const i = btn.getAttribute('data-i');
+      const row = document.getElementById('detail-'+i);
+      const isOpenRow = row.style.display==='table-row';
+      row.style.display = isOpenRow ? 'none' : 'table-row';
+      btn.textContent = isOpenRow ? '▾' : '▴';
+    });
+  });
+  Array.from(document.querySelectorAll('tr.main-row')).forEach(tr=>{
+    tr.addEventListener('click', ()=>{ tr.querySelector('.expand-btn').click(); });
+  });
+}
+
+/* ============================================================
+   CHART DRAWING
+   ============================================================ */
+function drawLineChart(id, labels, data){
+  const ctx = document.getElementById(id);
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[{ data, borderColor:'#1E8E5A', backgroundColor:'rgba(30,142,90,0.12)', fill:true, tension:.35, pointRadius:0, borderWidth:2 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{display:false}, grid:{display:false}}, y:{ grid:{color:'#EEF0EA'}, ticks:{font:{family:'IBM Plex Mono',size:9.5}, color:'#9AA1AC'} } }
+    }
+  });
+}
+function drawDoughnut(id, labels, data, colors, onClick){
+  const ctx = document.getElementById(id);
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
+    options:{
+      responsive:true, cutout:'62%', maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      onClick:(evt,els)=>{ if(els.length) onClick(labels[els[0].index]); },
+      onHover:(evt,els)=>{ evt.native.target.style.cursor = els.length?'pointer':'default'; }
+    }
+  });
+}
+function drawBar(id, labels, data, onClick, colors){
+  const ctx = document.getElementById(id);
+  if(charts[id]) charts[id].destroy();
+  const bg = Array.isArray(colors) ? colors : (colors || '#1E8E5A');
+  charts[id] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ data, backgroundColor:bg, borderRadius:4 }] },
+    options:{
+      indexAxis: labels.length>6 ? 'y' : 'x',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ grid:{color:'#EEF0EA'}, ticks:{font:{family:'IBM Plex Mono',size:9}, color:'#6B7280'} },
+        y:{ grid:{display:false}, ticks:{font:{family:'Inter',size:10}, color:'#14181F'} }
+      },
+      onClick: onClick ? (evt,els)=>{ if(els.length) onClick(labels[els[0].index]); } : undefined,
+      onHover: onClick ? (evt,els)=>{ evt.native.target.style.cursor = els.length?'pointer':'default'; } : undefined
+    }
+  });
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+Array.from(document.querySelectorAll('.tab-btn')).forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const tab = btn.getAttribute('data-tab');
+    Array.from(document.querySelectorAll('.tab-btn')).forEach(b=>b.classList.toggle('active', b===btn));
+    Array.from(document.querySelectorAll('.tab-content')).forEach(c=>c.classList.toggle('active', c.getAttribute('data-tab')===tab));
+  });
+});
+
+/* ============================================================
+   FILTER BAR WIRING
+   ============================================================ */
+function syncDropdowns(){
+  document.getElementById('fObserver').value = FILTERS.observer;
+  document.getElementById('fDesignation').value = FILTERS.designation;
+  document.getElementById('fStatus').value = FILTERS.status;
+}
+function populateDropdowns(){
+  const observers = Array.from(new Set(ALL_ROWS.map(r=>r.observer))).sort();
+  const designations = Array.from(new Set(ALL_ROWS.map(r=>r.designation))).sort();
+  document.getElementById('fObserver').innerHTML = '<option>All</option>' + observers.map(o=>`<option>${o}</option>`).join('');
+  document.getElementById('fDesignation').innerHTML = '<option>All</option>' + designations.map(d=>`<option>${d}</option>`).join('');
+}
+document.getElementById('fObserver').addEventListener('change', e=>{ FILTERS.observer = e.target.value; renderAll(); });
+document.getElementById('fDesignation').addEventListener('change', e=>{ FILTERS.designation = e.target.value; renderAll(); });
+document.getElementById('fStatus').addEventListener('change', e=>{ FILTERS.status = e.target.value; renderAll(); });
+document.getElementById('fSearch').addEventListener('input', e=>{ FILTERS.search = e.target.value; renderAll(); });
+document.getElementById('clearFiltersBtn').addEventListener('click', ()=>{
+  FILTERS.observer='All'; FILTERS.designation='All'; FILTERS.status='All'; FILTERS.search=''; FILTERS.category=null; FILTERS.location=null; FILTERS.quick=null; FILTERS._sev=null;
+  document.getElementById('fSearch').value=''; syncDropdowns(); renderAll();
+});
+document.getElementById('logObsBtn').addEventListener('click', ()=>{
+  showBanner('New observations are added through your Google Form — this dashboard reflects the connected sheet automatically once submitted. It does not write back to the sheet.');
+});
+
+/* ============================================================
+   LOAD
+   ============================================================ */
+let refreshTimer = null;
+async function loadData(){
+  setSync(false, 'Syncing…');
+  try{
+    const res = await fetch(CSV_URL, {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const text = await res.text();
+    if(text.trim().startsWith('<')) throw new Error('Sheet returned a sign-in page, not CSV');
+    const rows = parseRows(text);
+    if(!rows.length) throw new Error('No rows parsed');
+    ALL_ROWS = rows;
+    hideBanner();
+    document.getElementById('sourceNote').textContent = 'Source: Live Google Sheet';
+    populateDropdowns(); syncDropdowns(); renderAll();
+    setSync(false, 'Synced ' + new Date().toLocaleTimeString());
+  }catch(err){
+    ALL_ROWS = parseRows(SAMPLE_CSV);
+    document.getElementById('sourceNote').textContent = 'Source: Sample data (live fetch failed)';
+    populateDropdowns(); syncDropdowns(); renderAll();
+    setSync(true, 'Live sync failed — showing sample');
+    showBanner(`<b>Couldn't reach the live sheet</b> (${err.message}). Most likely cause: the sheet isn't shared as
+      "Anyone with the link — Viewer", or the browser blocked the cross-origin request. Fix: in the Sheet, click
+      <b>Share</b> → set to <b>Anyone with the link</b> → then use <b>File → Share → Publish to web</b> and choose
+      <b>CSV</b>, then paste that URL into <code>CSV_URL</code> near the top of this file's script. Showing the
+      last known sample data below in the meantime.`);
+  }
+  document.getElementById('countNote').textContent = ALL_ROWS.length + ' total observations loaded';
+}
+document.getElementById('refreshBtn').addEventListener('click', loadData);
+loadData();
+if(refreshTimer) clearInterval(refreshTimer);
+refreshTimer = setInterval(loadData, REFRESH_MS);
+</script>
+</body>
+</html>
